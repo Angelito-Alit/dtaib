@@ -76,7 +76,7 @@ app.use('/api', estudiantesRoutes);
 app.use('/api', estudianteRoutes);
 
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 app.listen(PORT, () => console.log(`🚀 ${PORT}`));
 
 process.on('SIGINT', async () => {
