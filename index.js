@@ -1,4 +1,3 @@
-
 import dotenv from 'dotenv';
 import express from 'express';
 import mysql from 'mysql2/promise';
@@ -19,47 +18,50 @@ import estudiantesRoutes from './api/estudiantesRoutes.js';
 import estudianteRoutes from './api/estudianteRoutes.js';
 
 dotenv.config();
+
 const app = express();
 app.use(express.json());
 app.use(cors());
+let db;
+const createPool = () => {
+  if (!db) {
+    db = mysql.createPool({
+      host: process.env.DB_HOST,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      port: process.env.DB_PORT,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      acquireTimeout: 60000,
+      timeout: 60000,
+      reconnect: true,
+      idleTimeout: 300000,
+      maxIdle: 10,
+      keepAliveInitialDelay: 0,
+      enableKeepAlive: true,
+    });
 
-const dbConfig = {
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    acquireTimeout: 60000,
-    timeout: 60000,
-    reconnect: true,
-    idleTimeout: 300000,
-    maxIdle: 10,
-    keepAliveInitialDelay: 0,
-    enableKeepAlive: true,
+    db.on('connection', () => {
+      console.log("✅ Nueva conexión MySQL establecida");
+    });
+
+    db.on('error', (err) => {
+      console.error('❌ Error en el pool de conexiones:', err);
+    });
+
+    console.log("✅ Pool de conexiones MySQL inicializado");
+  }
+  return db;
 };
 
-export const db = mysql.createPool(dbConfig);
-db.on('connection', (connection) => {
-});
+createPool();
 
-db.on('error', (err) => {
-    console.error('❌ Error en el pool de conexiones:', err);
-    if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-        console.log('🔄 Reconectando...');
-    }
+app.use((req, res, next) => {
+  req.db = db;
+  next();
 });
-
-try {
-    const connection = await db.getConnection();
-    console.log("✅ Pool de conexiones MySQL creado exitosamente");
-    connection.release(); 
-} catch (err) {
-    console.error("❌ Error al crear el pool de conexiones:", err);
-    process.exit(1);
-}
 app.use('/api', publicRoutes);
 app.use('/api', authRoutes);
 app.use('/api', dashboardRoutes);
@@ -75,13 +77,4 @@ app.use('/api', chatbotRoutes);
 app.use('/api', estudiantesRoutes);
 app.use('/api', estudianteRoutes);
 
-
-const PORT = process.env.PORT;
-app.listen(PORT, () => console.log(`🚀 ${PORT}`));
-
-process.on('SIGINT', async () => {
-    console.log('\n🔄 Cerrando servidor...');
-    await db.end();
-    console.log('✅ Pool de conexiones cerrado');
-    process.exit(0);
-});
+export default app;
